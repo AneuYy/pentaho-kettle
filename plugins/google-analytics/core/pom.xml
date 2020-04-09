@@ -80,7 +80,7 @@
     </dependency>
     <dependency>
       <groupId>org.eclipse.swt</groupId>
-      <artifactId>org.eclipse.swt.gtk.linux.x86_64</artifactId>
+      <artifactId>${swt.artifactId}</artifactId>
       <version>4.6</version>
     </dependency>
     <dependency>
