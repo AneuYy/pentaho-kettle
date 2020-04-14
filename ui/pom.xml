@@ -122,6 +122,7 @@
     <dependency>
       <groupId>org.eclipse.core</groupId>
       <artifactId>org.eclipse.core.commands</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>jfree</groupId>
