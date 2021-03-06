@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -270,10 +270,10 @@ public class TextFileCSVImportProgressDialog implements CsvInputAwareImportProgr
 
     if ( meta.content.header ) {
       fileLineNumber = TextFileInputUtils.skipLines( log, reader, encodingType, fileFormatType, lineBuffer,
-        meta.content.nrHeaderLines, meta.getEnclosure(), fileLineNumber );
+        meta.content.nrHeaderLines, meta.getEnclosure(), meta.getEscapeCharacter(), fileLineNumber );
     }
     //Reading the first line of data
-    line = TextFileInputUtils.getLine( log, reader, encodingType, fileFormatType, lineBuffer, meta.getEnclosure() );
+    line = TextFileInputUtils.getLine( log, reader, encodingType, fileFormatType, lineBuffer, meta.getEnclosure(), meta.getEscapeCharacter() );
     int linenr = 1;
 
     List<StringEvaluator> evaluators = new ArrayList<StringEvaluator>();
@@ -328,10 +328,6 @@ public class TextFileCSVImportProgressDialog implements CsvInputAwareImportProgr
         }
 
         String string = getStringFromRow( rowMeta, r, i, failOnParseError );
-
-        if ( i == 0 ) {
-          System.out.println();
-        }
         evaluator.evaluateString( string );
       }
 
@@ -341,7 +337,7 @@ public class TextFileCSVImportProgressDialog implements CsvInputAwareImportProgr
 
       // Grab another line...
       TextFileLine textFileLine = TextFileInputUtils
-        .getLine( log, reader, encodingType, fileFormatType, lineBuffer, enclosure, fileLineNumber );
+        .getLine( log, reader, encodingType, fileFormatType, lineBuffer, enclosure, escapeCharacter, fileLineNumber );
       line = textFileLine.getLine();
       fileLineNumber = textFileLine.getLineNumber();
     }

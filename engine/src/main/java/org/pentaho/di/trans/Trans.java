@@ -557,6 +557,9 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
 
   private boolean executingClustered;
 
+  private static final int TRANS_FINISHED_BLOCKING_QUEUE_SIZE =
+    Integer.parseInt( System.getProperty( Const.KETTLE_TRANS_FINISHED_BLOCKING_QUEUE_SIZE, "200" ) );
+
   /**
    * Instantiates a new transformation.
    */
@@ -1238,10 +1241,12 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
     }
 
     if ( !ok ) {
-      // Halt the other threads as well, signal end-of-the line to the outside
-      // world...
-      // Also explicitly call dispose() to clean up resources opened during
-      // init();
+      // One or more steps failed on initialization.
+      // Transformation is now stopped.
+      setStopped( true );
+
+      // Halt the other threads as well, signal end-of-the line to the outside world...
+      // Also explicitly call dispose() to clean up resources opened during init();
       //
       for ( int i = 0; i < initThreads.length; i++ ) {
         StepMetaDataCombi combi = initThreads[ i ].getCombi();
@@ -1263,7 +1268,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
       } catch ( KettleException e ) {
         // listeners produces errors
         log.logError( BaseMessages.getString( PKG, "Trans.FinishListeners.Exception" ) );
-        // we will not pass this exception up to prepareExecuton() entry point.
+        // we will not pass this exception up to prepareExecution() entry point.
       } finally {
         // Flag the transformation as finished even if exception was thrown
         setFinished( true );
@@ -1418,7 +1423,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
     setPaused( false );
     setStopped( false );
 
-    transFinishedBlockingQueue = new ArrayBlockingQueue<>( 10 );
+    transFinishedBlockingQueue = new ArrayBlockingQueue<>( TRANS_FINISHED_BLOCKING_QUEUE_SIZE );
 
     TransListener transListener = new TransAdapter() {
       @Override
@@ -2582,7 +2587,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
 
       // Also time-out the log records in here...
       //
-      db.cleanupLogRecords( channelLogTable );
+      db.cleanupLogRecords( channelLogTable, getName() );
     } catch ( Exception e ) {
       throw new KettleException( BaseMessages.getString( PKG,
         "Trans.Exception.UnableToWriteLogChannelInformationToLogTable" ), e );
@@ -2609,7 +2614,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
         db.writeLogRecord( stepLogTable, LogStatus.START, combi, null );
       }
 
-      db.cleanupLogRecords( stepLogTable );
+      db.cleanupLogRecords( stepLogTable, getName() );
     } catch ( Exception e ) {
       throw new KettleException( BaseMessages.getString( PKG,
         "Trans.Exception.UnableToWriteStepInformationToLogTable" ), e );
@@ -2682,7 +2687,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
 
       // Also time-out the log records in here...
       //
-      db.cleanupLogRecords( metricsLogTable );
+      db.cleanupLogRecords( metricsLogTable, getName() );
     } catch ( Exception e ) {
       throw new KettleException( BaseMessages.getString( PKG,
         "Trans.Exception.UnableToWriteMetricsInformationToLogTable" ), e );
@@ -2770,12 +2775,10 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
   private synchronized boolean endProcessing() throws KettleException {
     LogStatus status;
 
-    if ( isFinished() ) {
-      if ( isStopped() ) {
-        status = LogStatus.STOP;
-      } else {
-        status = LogStatus.END;
-      }
+    if ( isStopped() ) {
+      status = LogStatus.STOP;
+    } else if ( isFinished() ) {
+      status = LogStatus.END;
     } else if ( isPaused() ) {
       status = LogStatus.PAUSED;
     } else {
@@ -2816,7 +2819,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
         // Also time-out the log records in here...
         //
         if ( status.equals( LogStatus.END ) || status.equals( LogStatus.STOP ) ) {
-          ldb.cleanupLogRecords( transLogTable );
+          ldb.cleanupLogRecords( transLogTable, getName() );
         }
 
         // Commit the operations to prevent locking issues
@@ -2898,7 +2901,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
       // Finally, see if the log table needs cleaning up...
       //
       if ( status.equals( LogStatus.END ) ) {
-        ldb.cleanupLogRecords( performanceLogTable );
+        ldb.cleanupLogRecords( performanceLogTable, getName() );
       }
 
     } catch ( Exception e ) {
@@ -3060,7 +3063,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    * Find the executing step copy for the step with the specified name and copy number
    *
    * @param stepname the step name
-   * @param copynr
+   * @param copyNr
    * @return the executing step found or null if no copy could be found.
    */
   public StepInterface findStepInterface( String stepname, int copyNr ) {
@@ -3082,7 +3085,6 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    * Find the available executing step copies for the step with the specified name
    *
    * @param stepname the step name
-   * @param copynr
    * @return the list of executing step copies found or null if no steps are available yet (incorrect usage)
    */
   public List<StepInterface> findStepInterfaces( String stepname ) {

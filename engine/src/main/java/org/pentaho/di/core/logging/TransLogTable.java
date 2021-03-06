@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2017 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -67,7 +67,7 @@ public class TransLogTable extends BaseLogTable implements Cloneable, LogTableIn
       "LINES_INPUT" ), LINES_OUTPUT( "LINES_OUTPUT" ), LINES_REJECTED( "LINES_REJECTED" ), ERRORS( "ERRORS" ),
       STARTDATE( "STARTDATE" ), ENDDATE( "ENDDATE" ), LOGDATE( "LOGDATE" ), DEPDATE( "DEPDATE" ), REPLAYDATE(
         "REPLAYDATE" ), LOG_FIELD( "LOG_FIELD" ), EXECUTING_SERVER( "EXECUTING_SERVER" ), EXECUTING_USER(
-        "EXECUTING_USER" ), CLIENT( "CLIENT" ), TIMEOUT( "TIMEOUT" );
+        "EXECUTING_USER" ), CLIENT( "CLIENT" );
 
     private String id;
 
@@ -134,7 +134,10 @@ public class TransLogTable extends BaseLogTable implements Cloneable, LogTableIn
       Node fieldNode = XMLHandler.getSubNodeByNr( node, BaseLogTable.XML_TAG, i );
       String id = XMLHandler.getTagValue( fieldNode, "id" );
       LogTableField field = findField( id );
-      if ( field == null ) {
+      // WARNING: builds prior to 9.2 do not have the size check below.  If a new field is added to the trans_log_table,
+      // any build prior to 9.2 will get a subscript out of bounds error loading the transformation.  See PDI-19047
+      // and PDI-18555
+      if ( field == null && i < fields.size() ) {
         field = fields.get( i );
       }
       if ( field != null ) {
@@ -217,7 +220,6 @@ public class TransLogTable extends BaseLogTable implements Cloneable, LogTableIn
     table.fields.add( new LogTableField( ID.EXECUTING_SERVER.id, false, false, "EXECUTING_SERVER", BaseMessages.getString( PKG, "TransLogTable.FieldName.ExecutingServer" ), BaseMessages.getString( PKG, "TransLogTable.FieldDescription.ExecutingServer" ), ValueMetaInterface.TYPE_STRING, 255 ) );
     table.fields.add( new LogTableField( ID.EXECUTING_USER.id, false, false, "EXECUTING_USER", BaseMessages.getString( PKG, "TransLogTable.FieldName.ExecutingUser" ), BaseMessages.getString( PKG, "TransLogTable.FieldDescription.ExecutingUser" ), ValueMetaInterface.TYPE_STRING, 255 ) );
     table.fields.add( new LogTableField( ID.CLIENT.id, false, false, "CLIENT", BaseMessages.getString( PKG, "TransLogTable.FieldName.Client" ), BaseMessages.getString( PKG, "TransLogTable.FieldDescription.Client" ), ValueMetaInterface.TYPE_STRING, 255 ) );
-    table.fields.add( new LogTableField( ID.TIMEOUT.id, false, false, "TIMEOUT", BaseMessages.getString( PKG, "TransLogTable.FieldName.RowTimeout" ), BaseMessages.getString( PKG, "TransLogTable.FieldDescription.RowTimeout" ), ValueMetaInterface.TYPE_INTEGER, 18 ) );
 
     table.findField( ID.ID_BATCH ).setKey( true );
     table.findField( ID.LOGDATE ).setLogDateField( true );
@@ -227,7 +229,6 @@ public class TransLogTable extends BaseLogTable implements Cloneable, LogTableIn
     table.findField( ID.STATUS ).setStatusField( true );
     table.findField( ID.ERRORS ).setErrorsField( true );
     table.findField( ID.TRANSNAME ).setNameField( true );
-    table.findField( ID.TIMEOUT ).setVisible( false );
 
     return table;
   }
@@ -433,9 +434,6 @@ public class TransLogTable extends BaseLogTable implements Cloneable, LogTableIn
                   KettleClientEnvironment.getInstance().getClient() != null ? KettleClientEnvironment
                     .getInstance().getClient().toString() : "unknown";
                 break;
-              case TIMEOUT:
-                value = Long.parseLong( getTimeoutInDays() );
-                break;
               default:
                 break;
             }
@@ -476,44 +474,15 @@ public class TransLogTable extends BaseLogTable implements Cloneable, LogTableIn
     List<RowMetaInterface> indexes = new ArrayList<RowMetaInterface>();
 
     // First index : ID_BATCH if any is used.
-    //
     if ( isBatchIdUsed() ) {
-      RowMetaInterface batchIndex = new RowMeta();
-      LogTableField keyField = getKeyField();
-      batchIndex.addValueMeta( getValueMeta( keyField ) );
-
-      indexes.add( batchIndex );
+      indexes.add( addFieldsToIndex( getKeyField() ) );
     }
-
     // The next index includes : ERRORS, STATUS, TRANSNAME:
-
-    RowMetaInterface lookupIndex = new RowMeta();
-    LogTableField errorsField = findField( ID.ERRORS );
-    if ( errorsField != null ) {
-      lookupIndex.addValueMeta( getValueMeta( errorsField ) );
-    }
-    LogTableField statusField = findField( ID.STATUS );
-    if ( statusField != null ) {
-      lookupIndex.addValueMeta( getValueMeta( statusField ) );
-    }
-    LogTableField transNameField = findField( ID.TRANSNAME );
-    if ( transNameField != null ) {
-      lookupIndex.addValueMeta( getValueMeta( transNameField ) );
-    }
-
-    indexes.add( lookupIndex );
+    indexes.add( addFieldsToIndex( findField( ID.ERRORS ), findField( ID.STATUS ), findField( ID.TRANSNAME ) ) );
+    // Index used for deleting rows during cleanup
+    indexes.add( addFieldsToIndex( findField( ID.TRANSNAME ), findField( ID.LOGDATE ) ) );
 
     return indexes;
-  }
-
-  private ValueMetaInterface getValueMeta( LogTableField field ) {
-    ValueMetaInterface valueMeta = new ValueMetaBase( field.getFieldName(), field.getDataType() );
-    valueMeta.setLength( field.getLength() );
-    return valueMeta;
-  }
-
-  public LogTableField getTimeoutField() {
-    return findField( ID.TIMEOUT );
   }
 
   @Override
