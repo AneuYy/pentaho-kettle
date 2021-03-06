@@ -155,6 +155,12 @@
   </kettle-variable>
 
   <kettle-variable>
+    <description>Prevents Kettle from converting spaces only strings to empty string.</description>
+    <variable>KETTLE_DO_NOT_NORMALIZE_SPACES_ONLY_STRING_TO_EMPTY</variable>
+    <default-value>N</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
     <description>Prevent Kettle from yielding null as the value of an empty value.</description>
     <variable>KETTLE_XML_EMPTY_TAG_YIELDS_EMPTY_VALUE</variable>
     <default-value>N</default-value>
@@ -198,6 +204,12 @@
     <description>The maximum number of logging registry entries kept in memory for logging purposes.</description>
     <variable>KETTLE_MAX_LOGGING_REGISTRY_SIZE</variable>
     <default-value>10000</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>The timeout interval for the logging registry purge timer which cleanups of registry entries (in msecs).</description>
+    <variable>KETTLE_LOGGING_REGISTRY_PURGE_TIMEOUT</variable>
+    <default-value>60000</default-value>
   </kettle-variable>
 
   <kettle-variable>
@@ -553,6 +565,18 @@
       Possible values: "LEGACY" (default), "MILLISECONDS", "NANOSECONDS".</description>
     <variable>KETTLE_TIMESTAMP_NUMBER_CONVERSION_MODE</variable>
     <default-value>LEGACY</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>This environment variable is used to enable the checking of zip bomb. This is set to false by default.</description>
+    <variable>KETTLE_XLSX_ZIP_BOMB_CHECK</variable>
+    <default-value>false</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>A variable to configure a comma separated list of environment variables to ignore when initializing shell step. org.osgi.framework.system.packages.extra is set by default.</description>
+    <variable>SHELL_STEP_ENVIRONMENT_VARIABLES_TO_IGNORE</variable>
+    <default-value>org.osgi.framework.system.packages.extra</default-value>
   </kettle-variable>
 </kettle-variables>
 
